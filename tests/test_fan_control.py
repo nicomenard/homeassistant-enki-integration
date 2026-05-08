@@ -47,13 +47,13 @@ async def api():
 @pytest.fixture()
 async def clean_state(api):
     """Ensure fan and light are OFF before and after each test."""
-    await api.async_set_fan_power(HOME_ID, NODE_ID, False)
-    await api.async_set_light_power(HOME_ID, NODE_ID, False)
+    await api.async_set_fan_speed(HOME_ID, NODE_ID, 0)
+    await api.async_change_light_state(HOME_ID, NODE_ID, "power", "OFF")
     await asyncio.sleep(1)
     yield api
     # teardown — restore off state
-    await api.async_set_fan_power(HOME_ID, NODE_ID, False)
-    await api.async_set_light_power(HOME_ID, NODE_ID, False)
+    await api.async_set_fan_speed(HOME_ID, NODE_ID, 0)
+    await api.async_change_light_state(HOME_ID, NODE_ID, "power", "OFF")
 
 
 # ---------------------------------------------------------------------------
@@ -92,22 +92,20 @@ async def test_get_devices(api):
 
 async def test_fan_turn_on(clean_state):
     api = clean_state
-    await api.async_set_fan_power(HOME_ID, NODE_ID, True)
+    await api.async_set_fan_speed(HOME_ID, NODE_ID, 1)
     await asyncio.sleep(2)
-    power = await api._get_power_state(HOME_ID, NODE_ID, 1)
-    assert power == "ON"
+    speed = await api._get_fan_speed(HOME_ID, NODE_ID)
+    assert speed > 0
 
 
 async def test_fan_turn_off(clean_state):
     api = clean_state
-    # Turn on first
-    await api.async_set_fan_power(HOME_ID, NODE_ID, True)
+    await api.async_set_fan_speed(HOME_ID, NODE_ID, 1)
     await asyncio.sleep(1)
-    # Now turn off
-    await api.async_set_fan_power(HOME_ID, NODE_ID, False)
+    await api.async_set_fan_speed(HOME_ID, NODE_ID, 0)
     await asyncio.sleep(2)
-    power = await api._get_power_state(HOME_ID, NODE_ID, 1)
-    assert power == "OFF"
+    speed = await api._get_fan_speed(HOME_ID, NODE_ID)
+    assert speed == 0
 
 
 async def test_fan_set_speed(clean_state):
@@ -134,20 +132,20 @@ async def test_fan_speed_zero_when_off(clean_state):
 
 async def test_light_turn_on(clean_state):
     api = clean_state
-    await api.async_set_light_power(HOME_ID, NODE_ID, True)
+    await api.async_change_light_state(HOME_ID, NODE_ID, "power", "ON")
     await asyncio.sleep(2)
-    power = await api._get_power_state(HOME_ID, NODE_ID, 2)
-    assert power == "ON"
+    state = await api._get_light_state(HOME_ID, NODE_ID)
+    assert state["lastReportedValue"]["power"] == "ON"
 
 
 async def test_light_turn_off(clean_state):
     api = clean_state
-    await api.async_set_light_power(HOME_ID, NODE_ID, True)
+    await api.async_change_light_state(HOME_ID, NODE_ID, "power", "ON")
     await asyncio.sleep(1)
-    await api.async_set_light_power(HOME_ID, NODE_ID, False)
+    await api.async_change_light_state(HOME_ID, NODE_ID, "power", "OFF")
     await asyncio.sleep(2)
-    power = await api._get_power_state(HOME_ID, NODE_ID, 2)
-    assert power == "OFF"
+    state = await api._get_light_state(HOME_ID, NODE_ID)
+    assert state["lastReportedValue"]["power"] == "OFF"
 
 
 async def test_light_brightness(clean_state):
@@ -184,12 +182,12 @@ async def test_fan_and_light_independent(clean_state):
     """Turning the fan on must not affect the light, and vice versa."""
     api = clean_state
 
-    await api.async_set_fan_power(HOME_ID, NODE_ID, True)
+    await api.async_set_fan_speed(HOME_ID, NODE_ID, 1)
     await asyncio.sleep(2)
-    light = await api._get_power_state(HOME_ID, NODE_ID, 2)
-    assert light == "OFF", "Turning fan on should not affect the light"
+    light = await api._get_light_state(HOME_ID, NODE_ID)
+    assert light["lastReportedValue"]["power"] == "OFF", "Turning fan on should not affect the light"
 
-    await api.async_set_light_power(HOME_ID, NODE_ID, True)
+    await api.async_change_light_state(HOME_ID, NODE_ID, "power", "ON")
     await asyncio.sleep(2)
-    fan = await api._get_power_state(HOME_ID, NODE_ID, 1)
-    assert fan == "ON", "Turning light on should not turn off the fan"
+    speed = await api._get_fan_speed(HOME_ID, NODE_ID)
+    assert speed > 0, "Turning light on should not turn off the fan"

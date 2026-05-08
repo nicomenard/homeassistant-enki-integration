@@ -200,17 +200,14 @@ class EnkiAPI:
     # -------------------------------------------------------------------------
 
     async def _get_fan_full_state(self, home_id: str, node_id: str) -> dict[str, Any]:
-        fan_power   = await self._get_power_state(home_id, node_id, FAN_ENDPOINT)
-        light_power = await self._get_power_state(home_id, node_id, LIGHT_ENDPOINT)
         speed       = await self._get_fan_speed(home_id, node_id)
         mode        = await self._get_airflow_mode(home_id, node_id)
         light_state = await self._get_light_state(home_id, node_id)
         lrv = light_state.get("lastReportedValue", {})
         return {
-            "fan_power":        fan_power,
-            "light_power":      light_power,
             "fan_speed":        speed,
             "airflow_mode":     mode,
+            "light_power":      lrv.get("power", "OFF"),
             "brightness":       lrv.get("brightness"),
             "colorTemperature": lrv.get("colorTemperature"),
         }

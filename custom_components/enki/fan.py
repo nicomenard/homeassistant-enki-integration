@@ -46,7 +46,7 @@ class EnkiFan(EnkiBaseEntity, FanEntity):
 
     @property
     def is_on(self) -> bool:
-        return self._device.last_reported_value.get("fan_power") == "ON"
+        return self._device.last_reported_value.get("fan_speed", 0) > 0
 
     @property
     def percentage(self) -> int | None:
@@ -68,16 +68,17 @@ class EnkiFan(EnkiBaseEntity, FanEntity):
         home_id, node_id = self._device.home_id, self._device.node_id
         if percentage is not None and percentage > 0:
             speed = round(percentage_to_ranged_value(SPEED_RANGE, percentage))
-            await self.coordinator.api.async_set_fan_speed(home_id, node_id, speed)
-            self.coordinator.update_cached_value(node_id, "fan_speed", speed)
-        await self.coordinator.api.async_set_fan_power(home_id, node_id, True)
-        self.coordinator.update_cached_value(node_id, "fan_power", "ON")
+        else:
+            # Restore last speed or default to 1
+            speed = max(1, self._device.last_reported_value.get("fan_speed", 0) or 1)
+        await self.coordinator.api.async_set_fan_speed(home_id, node_id, speed)
+        self.coordinator.update_cached_value(node_id, "fan_speed", speed)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        await self.coordinator.api.async_set_fan_power(
-            self._device.home_id, self._device.node_id, False
+        await self.coordinator.api.async_set_fan_speed(
+            self._device.home_id, self._device.node_id, 0
         )
-        self.coordinator.update_cached_value(self._device.node_id, "fan_power", "OFF")
+        self.coordinator.update_cached_value(self._device.node_id, "fan_speed", 0)
 
     async def async_set_percentage(self, percentage: int) -> None:
         home_id, node_id = self._device.home_id, self._device.node_id
@@ -87,6 +88,3 @@ class EnkiFan(EnkiBaseEntity, FanEntity):
         speed = round(percentage_to_ranged_value(SPEED_RANGE, percentage))
         await self.coordinator.api.async_set_fan_speed(home_id, node_id, speed)
         self.coordinator.update_cached_value(node_id, "fan_speed", speed)
-        if not self.is_on:
-            await self.coordinator.api.async_set_fan_power(home_id, node_id, True)
-            self.coordinator.update_cached_value(node_id, "fan_power", "ON")
