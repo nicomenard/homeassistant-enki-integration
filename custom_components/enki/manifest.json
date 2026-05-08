@@ -1,0 +1,12 @@
+{
+  "domain": "enki",
+  "name": "Enki",
+  "version": "0.1.0",
+  "documentation": "https://github.com/clamoriniere/homeassistant-enki-integration",
+  "issue_tracker": "https://github.com/clamoriniere/homeassistant-enki-integration/issues",
+  "codeowners": ["@clamoriniere"],
+  "requirements": ["aiohttp>=3.9.0"],
+  "dependencies": [],
+  "iot_class": "cloud_polling",
+  "config_flow": true
+}
