@@ -150,6 +150,32 @@ async def test_light_turn_off(clean_state):
     assert power == "OFF"
 
 
+async def test_light_brightness(clean_state):
+    api = clean_state
+    await api.async_set_light_power(HOME_ID, NODE_ID, True)
+    await asyncio.sleep(1)
+
+    for value in (0.2, 0.6, 1.0):
+        await api.async_change_light_state(HOME_ID, NODE_ID, "brightness", value)
+        await asyncio.sleep(2)
+        state = await api._get_light_state(HOME_ID, NODE_ID)
+        reported = state["lastReportedValue"]["brightness"]
+        assert abs(reported - value) < 0.05, f"Expected brightness {value}, got {reported}"
+
+
+async def test_light_color_temperature(clean_state):
+    api = clean_state
+    await api.async_set_light_power(HOME_ID, NODE_ID, True)
+    await asyncio.sleep(1)
+
+    for kelvin in (3500, 5000, 6500):
+        await api.async_change_light_state(HOME_ID, NODE_ID, "colorTemperature", f"T{kelvin}K")
+        await asyncio.sleep(2)
+        state = await api._get_light_state(HOME_ID, NODE_ID)
+        reported = state["lastReportedValue"]["colorTemperature"]
+        assert reported == f"T{kelvin}K", f"Expected T{kelvin}K, got {reported}"
+
+
 # ---------------------------------------------------------------------------
 # Fan + light independence
 # ---------------------------------------------------------------------------

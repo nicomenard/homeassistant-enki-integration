@@ -35,11 +35,20 @@ async def async_setup_entry(
 
 
 class EnkiFanLight(EnkiBaseEntity, LightEntity):
-    """Light kit on an Enki ESDK ceiling fan (power-only via api-enki-power-prod)."""
+    """Light kit on an Enki ESDK ceiling fan.
+
+    Power on/off via api-enki-power-prod (endpoint 2).
+    Brightness and colour temperature via api-enki-lighting-prod.
+    Brightness is a float 0.0–1.0 on the wire; colour temp is "T{K}K".
+    """
 
     _attr_name = "Light"
-    _attr_color_mode = ColorMode.ONOFF
-    _attr_supported_color_modes = {ColorMode.ONOFF}
+    _attr_color_mode = ColorMode.COLOR_TEMP
+    _attr_supported_color_modes = {ColorMode.COLOR_TEMP}
+    # Supported values: 2748, 3500, 4000, 5000, 6500 K
+    # The API snaps any value to the nearest supported one automatically.
+    _attr_min_color_temp_kelvin = 2748
+    _attr_max_color_temp_kelvin = 6500
 
     def __init__(self, coordinator: EnkiCoordinator, device: EnkiDevice) -> None:
         super().__init__(coordinator, device)
@@ -49,11 +58,32 @@ class EnkiFanLight(EnkiBaseEntity, LightEntity):
     def is_on(self) -> bool:
         return self._device.last_reported_value.get("light_power") == "ON"
 
+    @property
+    def brightness(self) -> int | None:
+        raw = self._device.last_reported_value.get("brightness")
+        return round(raw * 255) if raw is not None else None
+
+    @property
+    def color_temp_kelvin(self) -> int | None:
+        raw = self._device.last_reported_value.get("colorTemperature")
+        return int(raw.strip("TK")) if raw else None
+
     async def async_turn_on(self, **kwargs: Any) -> None:
-        await self.coordinator.api.async_set_light_power(
-            self._device.home_id, self._device.node_id, True
-        )
-        self.coordinator.update_cached_value(self._device.node_id, "light_power", "ON")
+        home_id, node_id = self._device.home_id, self._device.node_id
+
+        if not self.is_on:
+            await self.coordinator.api.async_set_light_power(home_id, node_id, True)
+            self.coordinator.update_cached_value(node_id, "light_power", "ON")
+
+        if ATTR_BRIGHTNESS in kwargs:
+            value = round(kwargs[ATTR_BRIGHTNESS] / 255, 2)
+            await self.coordinator.api.async_change_light_state(home_id, node_id, "brightness", value)
+            self.coordinator.update_cached_value(node_id, "brightness", value)
+
+        if ATTR_COLOR_TEMP_KELVIN in kwargs:
+            value = f"T{kwargs[ATTR_COLOR_TEMP_KELVIN]}K"
+            await self.coordinator.api.async_change_light_state(home_id, node_id, "colorTemperature", value)
+            self.coordinator.update_cached_value(node_id, "colorTemperature", value)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         await self.coordinator.api.async_set_light_power(
