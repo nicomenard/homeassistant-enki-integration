@@ -64,7 +64,7 @@ class EnkiFan(EnkiBaseEntity, FanEntity):
         mode = self._device.last_reported_value.get("airflow_mode")
         return "breeze" if mode == AIRFLOW_MODE_BREEZE else None
 
-    async def async_turn_on(self, percentage: int | None = None, **kwargs: Any) -> None:
+    async def async_turn_on(self, percentage: int | None = None, preset_mode: str | None = None, **kwargs: Any) -> None:
         home_id, node_id = self._device.home_id, self._device.node_id
         if percentage is not None and percentage > 0:
             speed = round(percentage_to_ranged_value(SPEED_RANGE, percentage))
