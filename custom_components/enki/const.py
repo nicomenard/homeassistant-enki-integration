@@ -8,6 +8,12 @@ NAME = "Enki"
 
 DEFAULT_SCAN_INTERVAL = 30  # seconds
 
+# After a command, the Enki cloud returns 202 (accepted) and the device only
+# reports its new state back some seconds later. Protect the optimistic value
+# from being clobbered by a stale poll for a bit longer than one poll cycle,
+# otherwise on/off toggles visibly flap back to their old state.
+OPTIMISTIC_GRACE = DEFAULT_SCAN_INTERVAL + 15  # seconds
+
 ENKI_OIDC_URL = "https://keycloak-prod.iot.leroymerlin.fr/realms/enki/protocol/openid-connect/token"
 ENKI_BASE_URL = "https://enki.api.devportal.adeo.cloud"
 
