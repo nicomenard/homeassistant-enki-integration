@@ -5,7 +5,7 @@ from typing import Any
 
 from homeassistant.components.fan import FanEntity, FanEntityFeature
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util.percentage import percentage_to_ranged_value, ranged_value_to_percentage
 
@@ -43,6 +43,16 @@ class EnkiFan(EnkiBaseEntity, FanEntity):
     def __init__(self, coordinator: EnkiCoordinator, device: EnkiDevice) -> None:
         super().__init__(coordinator, device)
         self._attr_unique_id = f"{DOMAIN}-{device.node_id}-fan"
+        # The device forgets its speed when turned off (speed drops to 0), so we
+        # remember the last non-zero speed here to restore it on the next turn_on.
+        self._last_speed: int = device.last_reported_value.get("fan_speed", 0) or 1
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        super()._handle_coordinator_update()
+        reported = self._device.last_reported_value.get("fan_speed", 0)
+        if reported:
+            self._last_speed = reported
 
     @property
     def is_on(self) -> bool:
@@ -69,8 +79,8 @@ class EnkiFan(EnkiBaseEntity, FanEntity):
         if percentage is not None and percentage > 0:
             speed = round(percentage_to_ranged_value(SPEED_RANGE, percentage))
         else:
-            # Restore last speed or default to 1
-            speed = max(1, self._device.last_reported_value.get("fan_speed", 0) or 1)
+            # Restore the last non-zero speed (device forgot it on turn-off)
+            speed = self._last_speed or 1
         await self.coordinator.api.async_set_fan_speed(home_id, node_id, speed)
         self.coordinator.update_cached_value(node_id, "fan_speed", speed)
 
